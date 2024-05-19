@@ -1,18 +1,10 @@
 from ultralytics import YOLO
 from window import Ui_Dialog
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtTest import *
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtMultimediaWidgets import QVideoWidget
-from PyQt5.QtCore import QUrl
-from PyQt5 import QtCore, QtGui, QtWidgets
-import os, cv2
+from PyQt5.QtWidgets import QApplication, QMainWindow,QFileDialog
+from PyQt5.QtMultimedia import QMediaContent
+from PyQt5.QtCore import QUrl, QTimer
+import cv2
 import threading
-
-#os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 
 class Program(QMainWindow):
@@ -22,6 +14,7 @@ class Program(QMainWindow):
         self.userInterface = Ui_Dialog()
         self.userInterface.setupUi(self)
         self.setWindowTitle("KUŞ YUVASI BUL")
+        self.setFixedSize(1184,601)
         self.setWindowFlag(False)
       
         #self.setWindowIcon()
@@ -29,10 +22,13 @@ class Program(QMainWindow):
 
         self.path = None
         self.filename = None
+        self.model_path = "best.pt"
         self.total_frames=1
         self.frame_counter=1
         self.local_flag = False
         self.url_flag = False
+
+        self.conf_val = 50
 
         self.timer= None
         self.progress_rate=0
@@ -40,7 +36,8 @@ class Program(QMainWindow):
         self.Texts = []
 
         self.buttons = [
-            self.userInterface.pushButton
+            self.userInterface.pushButton,
+            self.userInterface.pushButton_2
         ]
 
         self.graphics = [
@@ -48,16 +45,13 @@ class Program(QMainWindow):
             self.userInterface.video_widget
         ]
 
-        self.plainTexts = [
-            self.userInterface.plainTextEdit
-        ]
-
         self.labels = [
-            self.userInterface.label
+            self.userInterface.label,
+            self.userInterface.label_2
         ]
 
         self.radio_buttons = [
-            self.userInterface.radioButton,
+            self.userInterface.radioButton_1,
             self.userInterface.radioButton_2
         ]
 
@@ -65,19 +59,38 @@ class Program(QMainWindow):
             self.userInterface.progess_bar
         ]
 
+        self.sliders = [
+            self.userInterface.horizontalSlider
+        ]
+
 
         self.moves()
 
 
 
-    def readText(self):
-        text = self.plainTexts[0].toPlainText()
-        self.Texts.append(text)
-        self.open_media()
+    def model_yukle(self):
+        
+        self.model_path, _ = QFileDialog.getOpenFileName(self, "modl Dosyası Seç", "", "model dosyaları(v8) (*.pt)")
+
+    def slider(self):
+        self.labels[0].setText("dogruluk esigi")
+        self.sliders[0].setValue(self.conf_val)
+        self.labels[1].setText(str(self.conf_val))
+        self.sliders[0].setMaximum(100)
+        self.sliders[0].setMinimum(0)
+        self.sliders[0].actionTriggered.connect(self.slider_update)
+
+
+    def slider_update(self):
+
+        self.conf_val = self.sliders[0].value()
+        self.labels[1].setText(str(self.conf_val))
 
     def moves(self):
+        self.slider()
         self.radio_button_select()
-        self.buttons[0].clicked.connect(self.readText)
+        self.buttons[0].clicked.connect(self.open_media)
+        self.buttons[1].clicked.connect(self.model_yukle)
         
 
 
@@ -87,26 +100,21 @@ class Program(QMainWindow):
         if self.radio_buttons[0].isChecked():
             self.local_flag = True
             self.url_flag = False
-            self.plainTexts[0].setEnabled(True)
         
         elif self.radio_buttons[1].isChecked():
             self.local_flag = True
             self.url_flag = False
-            self.plainTexts[0].setEnabled(False)
+
         
         else:
             self.labels[0].setText("bir işaretleme yapın..")
             self.local_flag = False
             self.url_flag = False
 
-    def model_youtube(self):
-        model = YOLO('best.pt')
-        results = model(self.path, stream=True, save=True, conf=0.5)
-
 
     def model(self):
 
-        model = YOLO('best.pt')
+        model = YOLO(self.model_path)
 
         #fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         #output_path = os.path.join(os.getcwd(), 'videos', 'output.mp4')
@@ -117,10 +125,10 @@ class Program(QMainWindow):
         self.frame_counter=1
         cap.release()
 
-        results = model(self.path, stream=True, save=True, conf=0.5)
+        results = model(self.path, stream=True, save=True, conf=(self.conf_val/100))
         for res in results:
             self.frame_counter+=1
-            self.progress_rate = (int(self.frame_counter)/int(self.total_frames))*100
+            self.progress_rate = ((int(self.frame_counter)/int(self.total_frames))*100)
 
 
         """
@@ -152,10 +160,16 @@ class Program(QMainWindow):
         """
 
 
+    def image_control(self):
+
+        model = YOLO(self.model_path)
+
+        model.predict(self.path, save=True, show=True, conf=(self.conf_val/100))
+
+
     def showVideo(self):
 
         if self.path != '':
-            self.plainTexts[0].setPlainText(self.path)
             self.graphics[0].setMedia(QMediaContent(QUrl.fromLocalFile(self.path)))
             self.graphics[0].play()
         
@@ -163,7 +177,8 @@ class Program(QMainWindow):
         
         if self.radio_buttons[0].isChecked():
             self.radio_button_select()
-            self.model_youtube()
+            self.path, self.filename = QFileDialog.getOpenFileName(self, "resim Dosyası Seç", "", "resim Dosyaları (*.png *.jpeg *.jpg)")
+            self.image_control()
 
         elif self.radio_buttons[1].isChecked():
             self.radio_button_select()
