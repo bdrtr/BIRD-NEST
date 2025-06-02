@@ -23,7 +23,7 @@ Python3, YOLOv8 ve PySide5 kullanarak canlı videolarda kuş yuvalarını tespit
 - GPU destekliyorsa CUDA (opsiyonel, hızlandırma için)  
 
 ---
-(img)[https://github.com/bdrtr/BIRD-NEST/issues/1]
+![Ekran Görüntüsü](https://github.com/bdrtr/BIRD-NEST/issues/1) 
 
 ## Kurulum
 
